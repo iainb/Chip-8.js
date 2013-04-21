@@ -11,8 +11,10 @@
         this._mbuf = new ArrayBuffer(4096);         // chip-8 main memory 4kb
         this.m     = new Uint8Array(this._mbuf);
 
-        this._rbuf = new ArrayBuffer(16)            // registers 0 - 15
+        this._rbuf = new ArrayBuffer(16);            // registers 0 - 15
         this.r     = new Uint8Array(this._rbuf);    
+
+        this.i     = 0;
 
         this.r_delay = 0; // delay register
         this.r_sound = 0; // sound register
@@ -22,21 +24,28 @@
         this.sp    = 0;                             // stack pointer
         
         this.pc    = 0x200;                         // program counter
-    
-        this._screen = new ArrayBuffer(16 * 32);    // setup screen
-        this.screen = new Uint8Array(this._screen);
+
+        this._screen = new ArrayBuffer(64 * 32);    // setup screen
+        this.screen  = new Uint8Array(this._screen);
+
+        this._update = new ArrayBuffer(64 * 32);    // setup update buffer only render pixels that change.
+        this.update  = new Uint8Array(this._update);    
+        for (i = 0; i < this.update.length; i = i + 1) {
+            this.update[i] = 1;
+        }
 
         this.LoadSprites();
 
         // the rate is the number of instructions to process per frame
         // the framerate is 60Hz
-        this.rate = 8;
+        this.rate = 12;
 
         // interval timer
         this.interval = null;
 
         // render is not set
         this.render = null;
+        this.count = 0;
     };
 
     // set the function we use to render the display
@@ -78,7 +87,7 @@
         req = new XMLHttpRequest();
         req.responseType = "arraybuffer";
         req.open('GET', url, true);
-        req.onload = function (e) {
+        req.onload = function () {
             var data, buf;
             data = this.response;
             buf  = new Uint8Array(data);
@@ -89,7 +98,7 @@
 
     // Load a rom into memory and start executing
     C8.prototype.LoadResource = function (rom) {
-        var self;
+        var self, i;
 
         self = this;
 
@@ -98,7 +107,7 @@
         }
 
         // start the main loop timers run at 60hz
-        this.interval = setInterval(function () { self.ServiceTimers() }, 1000 / 60);
+        this.interval = setInterval(function () { self.ServiceTimers(); }, 1000 / 60);
     };
 
     // handle service timers
@@ -109,31 +118,79 @@
         }
 
         if (this.r_sound !== 0) {
-            this.r_sounce = this.r_sound - 1;
+            this.r_sound = this.r_sound - 1;
         }
 
         // handle this.rate instructions
         for (i = 0; i < this.rate; i = i + 1) {
             try {
                 this.HandleInstruction();
+                //this.UpdateDisplay();
             } catch (e1) {
                 console.log('error: ' + e1);
+                this.DumpState();
                 if (this.interval !== null) {
                     clearInterval(this.interval);
                     return;
                 }
             }
         }
-
         this.UpdateDisplay();
+
+        //this.UpdateDisplay();
+    };
+
+    C8.prototype.DumpState = function () {
+        var i, regs, stack;
+        
+        // dump program counter and stack pointer
+        console.log('pc', this.HexDump(this.pc,2), 'sp', this.sp);
+
+        // dump the registers
+        regs = "";
+        for (i = 0; i < this.r.length; i = i + 1) {
+            regs = regs + "V" + i + ": 0x" + this.HexDump(this.r[i], 2) + " "; 
+        } 
+        regs = regs + "I: 0x" + this.HexDump(this.i, 4) + " ";
+        regs = regs + "D: 0x" + this.HexDump(this.r_delay, 2) + " ";
+        regs = regs + "S: 0x" + this.HexDump(this.r_sound, 2) + " ";
+        
+        console.log(regs);
+
+        
+        // dump the stack
+        stack = ""; 
+        for (i = 0; i < this.s.length; i = i + 1) {
+            if (i < 10) {
+                stack = stack + "0" + i;
+            } else {
+                stack = stack + i; 
+            }
+
+            stack = stack + ": 0x" + this.HexDump(this.s[i], 4) + " ";
+            if (i % 4 === 0 && i !== 0) {
+                stack = stack + "\n";
+            }
+        }
+        console.log(stack);
+    };
+
+    C8.prototype.HexDump = function (num, padding) {
+        var h;
+        h = num.toString(16);
+        while (h.length < padding) {
+            h = "0" + h;
+        }
+
+        return h;
     };
 
     // handle a single instruction, as documented here:
     //
     // http://devernay.free.fr/hacks/chip8/C8TECH10.HTM#3.1
     C8.prototype.HandleInstruction = function () {
-        var op, v, nnn, n, x, y, kk;
-
+        var op, v, nnn, n, x, y, kk, i, j, line, pixel_x, pixel_y, screen_index, pixel_value, cur_screen_value, new_screen_value, tmp;
+        
         // decode instruction
         op  = (this.m[this.pc] << 8) + this.m[this.pc + 1];
         v   = (op & 0xf000) >> 12;
@@ -143,6 +200,7 @@
         y   = (op & 0x00f0) >> 4;
         kk  = (op & 0x00ff);
 
+
         // advance the program counter
         this.pc = this.pc + 2;
         if (op === 0x00e0) {
@@ -150,7 +208,11 @@
             this.ClearScreen(); 
         } else if (op === 0x00ee) {
             // return from subroutine
-            throw "Unhandled instruction: 0x00ee";
+            this.sp = this.sp - 1;
+            if (this.sp < 0) {
+                throw "stack pointer is negative";
+            }
+            this.pc = this.s[this.sp];
         } else {
             switch (v) {
                 case 0x1:       // Jump, set PC to nnn
@@ -159,23 +221,125 @@
                 case 0x2:       // Call subroutine
                     this.s[this.sp] = this.pc;
                     this.sp = this.sp + 1;
-                    this.pc = nnn;    
+                    this.pc = nnn;
                     break;
                 case 0x3:       // skip instruction if Vx == kk
                     if (this.r[x] === kk) {
                         this.pc = this.pc + 2;
                     }
                     break;
+                case 0x4:       // skip instruction if Vx != kk
+                    if (this.r[x] !== kk) {
+                        this.pc = this.pc + 2;
+                    }
+                    break;
+                case 0x5:
+                    if (this.r[x] === this.r[y]) {
+                        this.pc = this.pc + 2;
+                    }
+                    break;
                 case 0x6:       // Load byte kk into Vx
                     this.r[x] = kk;
                     break;
-                case 0xF:       // 
+                case 0x7:       // Add kk to Vx into Vx
+                    this.r[x] = this.r[x] + kk;
+                    break;
+                case 0x8:
+                    switch (n) {
+                        case 0x0: // load
+                            this.r[x] = this.r[y];
+                            break;
+                        case 0x1: // or
+                            this.r[x] = (this.r[x] | this.r[y]) & 0xff;
+                            break;
+                        case 0x2: // and
+                            this.r[x] = (this.r[x] & this.r[y]) & 0xff;
+                            break;
+                        case 0x3: // xor
+                            this.r[x] = (this.r[x] ^ this.r[y]) & 0xff;
+                            break;
+                        case 0x4: // add
+                            this.r[0xf] = 0;
+                            tmp = this.r[x] + this.r[y];
+                            if (tmp > 255) {
+                                this.r[0xf] = 1;
+                                tmp = tmp & 0xff;
+                            }
+                            this.r[x] = tmp;
+                            break;
+                        case 0x5: // sub
+                            if (this.r[x] > this.r[y]) {
+                                this.r[0xf] = 1;
+                            } else {
+                                this.r[0xf] = 0;
+                            }
+                            tmp = this.r[x] - this.r[y];
+                            tmp = tmp & 0xff;
+                            this.r[x] = tmp;
+                            break;
+                        default:
+                            throw "unhandled instruction: 0x" + op.toString(16);
+                    }
+                    break;
+                case 0xA:       // load value nnn into i
+                    this.i = nnn;
+                    break;
+                case 0xC:       // random byte (0 - 255) & kk;
+                    this.r[x] = Math.floor(Math.random() * 255) & kk;
+                    break;
+                case 0xD:       // display sprite
+                    this.r[0xf] = 0;
+                    for (i=0; i < n; i = i + 1) {
+                        line = this.m[this.i + i];
+                        for (j=0; j < 8; j = j + 1) {
+                            pixel_x = (this.r[x] + j) % 64;
+                            pixel_y = (this.r[y] + i) % 32;
+                            screen_index    = (pixel_y * 64) + pixel_x;
+                            pixel_value     = line >> (7 - j) & 1;
+                            new_screen_value = this.screen[screen_index] ^ pixel_value;
+                            cur_screen_value = this.screen[screen_index];
+
+                            if (cur_screen_value === 1 && cur_screen_value !== new_screen_value) {
+                                this.r[0xf] = 1;
+                            }
+
+                            if (new_screen_value !== cur_screen_value) {
+                                this.screen[screen_index] = new_screen_value;
+                                this.update[screen_index] = 1;
+                            }
+                        }
+                    }
+                    break;
+                case 0xE:
+                    switch (kk) {
+                        case (0x9e): 
+                            break;
+                        case (0xa1): 
+                            break;
+                        default:
+                            throw "unhandled instruction: 0x" + op.toString(16);
+                    }
+                    break;
+                case 0xF:
                     switch (kk) {
                         case 0x07:  // place delay timer in Vx
                             this.r[x] = this.r_delay;
                             break;
+                        case 0x0A: // key press always the same key for now
+                            throw "key press not handled";
                         case 0x15:  // set delay timer
                             this.r_delay = this.r[x];
+                            break;
+                        case 0x18: // set the sound timer
+                            this.r_sound = this.r[x];
+                            break;
+                        case 0x1e: // I and Vx added and stored in I
+                            this.i = this.i + this.r[x];
+                            break;
+                        case 0x65: // read registers v0 to vx from memory starting at I
+                            for (i=0; i < x; i = i + 1) {
+                                this.r[i] = this.m[this.i + i];
+                            }
                             break;
                         default:
                             throw "Unhandled instruction: 0x" + op.toString(16);
@@ -192,6 +356,7 @@
         var i;
         for (i = 0; i < this.screen.length; i = i + 1) {
             this.screen[i] = 0;
+            this.update[i] = 1;
         } 
 
         this.UpdateDisplay();
@@ -200,15 +365,7 @@
     // update the display
     C8.prototype.UpdateDisplay = function () {
         if (this.render !== null) {
-            this.render.Render(this.screen);
-        }
-    };
-
-    // Handle n instructions
-    C8.prototype.Run = function (n) {
-        var i;
-        for (i = 0; i < n; i = i + 1) {
-            this.HandleInstruction();
+            this.render.Render(this.screen, this.update);
         }
     };
 }());
