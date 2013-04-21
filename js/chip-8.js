@@ -38,7 +38,7 @@
 
         // the rate is the number of instructions to process per frame
         // the framerate is 60Hz
-        this.rate = 12;
+        this.rate = 30;
 
         // interval timer
         this.interval = null;
@@ -200,7 +200,6 @@
         y   = (op & 0x00f0) >> 4;
         kk  = (op & 0x00ff);
 
-
         // advance the program counter
         this.pc = this.pc + 2;
         if (op === 0x00e0) {
@@ -281,6 +280,11 @@
                             throw "unhandled instruction: 0x" + op.toString(16);
                     }
                     break;
+                case 0x9:       // skip next instruction if vx != vy
+                    if (this.r[x] !== this.r[y]) {
+                        this.pc = this.pc + 2;
+                    }
+                    break;
                 case 0xA:       // load value nnn into i
                     this.i = nnn;
                     break;
@@ -312,10 +316,12 @@
                     break;
                 case 0xE:
                     switch (kk) {
+                        /* 
                         case (0x9e): 
                             break;
                         case (0xa1): 
                             break;
+                        */
                         default:
                             throw "unhandled instruction: 0x" + op.toString(16);
                     }
@@ -336,8 +342,13 @@
                         case 0x1e: // I and Vx added and stored in I
                             this.i = this.i + this.r[x];
                             break;
+                        case 0x55: // store registers v0 to vx to memory starting at location I
+                            for (i=0; i <= x; i = i + 1) {
+                                this.m[this.i + i] = this.r[i];
+                            }
+                            break;
                         case 0x65: // read registers v0 to vx from memory starting at I
-                            for (i=0; i < x; i = i + 1) {
+                            for (i=0; i <= x; i = i + 1) {
                                 this.r[i] = this.m[this.i + i];
                             }
                             break;
