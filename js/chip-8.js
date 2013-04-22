@@ -28,7 +28,7 @@ define([], function () {
 
         // the rate is the number of instructions to process per frame
         // the framerate is 60Hz
-        this.rate = 30;
+        this.rate = 8;
 
         // interval timer
         this.interval = null;
@@ -36,8 +36,127 @@ define([], function () {
         // render is not set
         this.render = null;
         this.count = 0;
+
+        this.SetupEventHandlers();
     };
 
+    // event handlers for keys
+    C8.prototype.SetupEventHandlers = function () {
+        var self;
+        this.keys = {  0x0: false, 0x1: false, 0x2: false, 0x3: false,
+                       0x4: false, 0x5: false, 0x6: false, 0x7: false,
+                       0x8: false, 0x9: false, 0xa: false, 0xb: false,
+                       0xc: false, 0xd: false, 0xe: false, 0xe: false, };
+        self = this;
+
+        $(window).on('keydown', function (e) {
+            switch (e.which) {
+                case 48:
+                    self.keys[0x0] = true;
+                    break;
+                case 49:
+                    self.keys[0x1] = true;
+                    break;
+                case 50:
+                    self.keys[0x2] = true;
+                    break;
+                case 51:
+                    self.keys[0x3] = true;
+                    break;
+                case 52:
+                    self.keys[0x4] = true;
+                    break;
+                case 53:
+                    self.keys[0x5] = true;
+                    break;
+                case 54:
+                    self.keys[0x6] = true;
+                    break;
+                case 55:
+                    self.keys[0x7] = true;
+                    break;
+                case 56:
+                    self.keys[0x8] = true;
+                    break;
+                case 57:
+                    self.keys[0x9] = true;
+                    break;
+                case 65:
+                    self.keys[0xa] = true;
+                    break;
+                case 66:
+                    self.keys[0xb] = true;
+                    break;
+                case 67:
+                    self.keys[0xc] = true;
+                    break;
+                case 68:
+                    self.keys[0xd] = true;
+                    break;
+                case 69:
+                    self.keys[0xe] = true;
+                    break;
+                case 70:
+                    self.keys[0xf] = true;
+                    break;
+            };
+        });
+
+        $(window).on('keyup', function(e) {
+            switch (e.which) {
+                case 48:
+                    self.keys[0x0] = false;
+                    break;
+                case 49:
+                    self.keys[0x1] = false;
+                    break;
+                case 50:
+                    self.keys[0x2] = false;
+                    break;
+                case 51:
+                    self.keys[0x3] = false;
+                    break;
+                case 52:
+                    self.keys[0x4] = false;
+                    break;
+                case 53:
+                    self.keys[0x5] = false;
+                    break;
+                case 54:
+                    self.keys[0x6] = false;
+                    break;
+                case 55:
+                    self.keys[0x7] = false;
+                    break;
+                case 56:
+                    self.keys[0x8] = false;
+                    break;
+                case 57:
+                    self.keys[0x9] = false;
+                    break;
+                case 65:
+                    self.keys[0xa] = false;
+                    break;
+                case 66:
+                    self.keys[0xb] = false;
+                    break;
+                case 67:
+                    self.keys[0xc] = false;
+                    break;
+                case 68:
+                    self.keys[0xd] = false;
+                    break;
+                case 69:
+                    self.keys[0xe] = false;
+                    break;
+                case 70:
+                    self.keys[0xf] = false;
+                    break;
+            };
+        });
+    };
+
+    // Setup the data structures for rendering the screen
     C8.prototype.SetupScreen = function () {
         var i;
         this._screen = new ArrayBuffer(64 * 32);    // setup screen
@@ -321,12 +440,16 @@ define([], function () {
                     break;
                 case 0xE:
                     switch (kk) {
-                        /* 
                         case (0x9e): 
+                            if (this.keys[this.r[x]] === true) {
+                                this.pc = this.pc + 2;
+                            }
                             break;
-                        case (0xa1): 
+                        case (0xa1):
+                            if (this.keys[this.r[x]] === false) {
+                                this.pc = this.pc + 2;
+                            }
                             break;
-                        */
                         default:
                             throw "unhandled instruction: 0x" + op.toString(16);
                     }
@@ -346,6 +469,14 @@ define([], function () {
                             break;
                         case 0x1e: // I and Vx added and stored in I
                             this.i = this.i + this.r[x];
+                            break;
+                        case 0x29: // set I to location of sprite for value x
+                            this.i = this.r[x] * 8;
+                            break;
+                        case 0x33: // store BCD representation of vx in memory locations I I+1 and I+2
+                            this.m[this.i + 0] = this.r[x] / 100 % 10;
+                            this.m[this.i + 1] = this.r[x] / 10 % 10;
+                            this.m[this.i + 2] = this.r[x] % 10;
                             break;
                         case 0x55: // store registers v0 to vx to memory starting at location I
                             for (i=0; i <= x; i = i + 1) {
