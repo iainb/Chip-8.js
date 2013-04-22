@@ -25,15 +25,7 @@
         
         this.pc    = 0x200;                         // program counter
 
-        this._screen = new ArrayBuffer(64 * 32);    // setup screen
-        this.screen  = new Uint8Array(this._screen);
-
-        this._update = new ArrayBuffer(64 * 32);    // setup update buffer only render pixels that change.
-        this.update  = new Uint8Array(this._update);    
-        for (i = 0; i < this.update.length; i = i + 1) {
-            this.update[i] = 1;
-        }
-
+        this.SetupScreen();
         this.LoadSprites();
 
         // the rate is the number of instructions to process per frame
@@ -46,6 +38,20 @@
         // render is not set
         this.render = null;
         this.count = 0;
+    };
+
+    C8.prototype.SetupScreen = function () {
+        var i;
+        this._screen = new ArrayBuffer(64 * 32);    // setup screen
+        this.screen  = new Uint8Array(this._screen);
+
+        this._update = new ArrayBuffer(64 * 32);    // setup update buffer only render pixels that change.
+        this.update  = new Uint8Array(this._update);    
+        for (i = 0; i < this.update.length; i = i + 1) {
+            this.update[i] = 1;
+        }
+        this.updateRequired = true;                 // are we required to redraw the screen
+
     };
 
     // set the function we use to render the display
@@ -310,6 +316,7 @@
                             if (new_screen_value !== cur_screen_value) {
                                 this.screen[screen_index] = new_screen_value;
                                 this.update[screen_index] = 1;
+                                this.updateRequired = true;
                             }
                         }
                     }
@@ -370,13 +377,16 @@
             this.update[i] = 1;
         } 
 
+        this.updateRequired = true;
+
         this.UpdateDisplay();
     };
 
     // update the display
     C8.prototype.UpdateDisplay = function () {
-        if (this.render !== null) {
+        if (this.updateRequired === true) {
             this.render.Render(this.screen, this.update);
+            this.updateRequired = false;
         }
     };
 }());
