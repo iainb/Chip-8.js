@@ -1,10 +1,8 @@
-(function () {
+define([], function () {
     
     function C8 () {
         this.Init();
     }
-
-    window.C8 = C8;
 
     C8.prototype.Init = function () {
         // initialise memory, registers, stack and screen.
@@ -389,4 +387,6 @@
             this.updateRequired = false;
         }
     };
-}());
+
+    return C8;
+});

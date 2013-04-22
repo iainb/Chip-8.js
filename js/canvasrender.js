@@ -1,4 +1,4 @@
-(function () {
+define(['jquery'], function($) {
     
     function CanvasRender (div, on, off) {
         this.Init(div, on, off);
@@ -56,5 +56,5 @@
         context.restore();
     };
 
-    window.CanvasRender = CanvasRender;
-}());
+    return CanvasRender;
+});
