@@ -43,116 +43,39 @@ define([], function () {
     // event handlers for keys
     C8.prototype.SetupEventHandlers = function () {
         var self;
-        this.keys = {  0x0: false, 0x1: false, 0x2: false, 0x3: false,
-                       0x4: false, 0x5: false, 0x6: false, 0x7: false,
-                       0x8: false, 0x9: false, 0xa: false, 0xb: false,
-                       0xc: false, 0xd: false, 0xe: false, 0xe: false, };
-        self = this;
+        this.keystate = {  0x0: false, 0x1: false, 0x2: false, 0x3: false,
+                           0x4: false, 0x5: false, 0x6: false, 0x7: false,
+                           0x8: false, 0x9: false, 0xa: false, 0xb: false,
+                           0xc: false, 0xd: false, 0xe: false, 0xe: false, };
 
+        this.keymap = { 48: 0x0, 49: 0x1, 50: 0x2, 51: 0x3,
+                        52: 0x4, 53: 0x5, 54: 0x6, 55: 0x7,
+                        56: 0x8, 57: 0x9, 65: 0xa, 66: 0xb,
+                        67: 0xc, 68: 0xd, 69: 0xe, 70: 0xf };
+
+        this.waitforkeypress = false;
+
+        // event handlers
+        self = this;
         $(window).on('keydown', function (e) {
-            switch (e.which) {
-                case 48:
-                    self.keys[0x0] = true;
-                    break;
-                case 49:
-                    self.keys[0x1] = true;
-                    break;
-                case 50:
-                    self.keys[0x2] = true;
-                    break;
-                case 51:
-                    self.keys[0x3] = true;
-                    break;
-                case 52:
-                    self.keys[0x4] = true;
-                    break;
-                case 53:
-                    self.keys[0x5] = true;
-                    break;
-                case 54:
-                    self.keys[0x6] = true;
-                    break;
-                case 55:
-                    self.keys[0x7] = true;
-                    break;
-                case 56:
-                    self.keys[0x8] = true;
-                    break;
-                case 57:
-                    self.keys[0x9] = true;
-                    break;
-                case 65:
-                    self.keys[0xa] = true;
-                    break;
-                case 66:
-                    self.keys[0xb] = true;
-                    break;
-                case 67:
-                    self.keys[0xc] = true;
-                    break;
-                case 68:
-                    self.keys[0xd] = true;
-                    break;
-                case 69:
-                    self.keys[0xe] = true;
-                    break;
-                case 70:
-                    self.keys[0xf] = true;
-                    break;
-            };
+            if (self.keymap.hasOwnProperty(e.which) === true) {
+                self.keystate[self.keymap[e.which]] = true;
+    
+                // handle wait for keypress
+                if (self.waitforkeypress !== false) {
+                    self.r[self.waitforkeypress] = self.keymap[e.which];
+                    self.waitforkeypress = false;
+                    // restart main loop
+                    self.interval = setInterval(function () { self.ServiceTimers(); }, 1000 / 60);
+                }
+            }
+
         });
 
         $(window).on('keyup', function(e) {
-            switch (e.which) {
-                case 48:
-                    self.keys[0x0] = false;
-                    break;
-                case 49:
-                    self.keys[0x1] = false;
-                    break;
-                case 50:
-                    self.keys[0x2] = false;
-                    break;
-                case 51:
-                    self.keys[0x3] = false;
-                    break;
-                case 52:
-                    self.keys[0x4] = false;
-                    break;
-                case 53:
-                    self.keys[0x5] = false;
-                    break;
-                case 54:
-                    self.keys[0x6] = false;
-                    break;
-                case 55:
-                    self.keys[0x7] = false;
-                    break;
-                case 56:
-                    self.keys[0x8] = false;
-                    break;
-                case 57:
-                    self.keys[0x9] = false;
-                    break;
-                case 65:
-                    self.keys[0xa] = false;
-                    break;
-                case 66:
-                    self.keys[0xb] = false;
-                    break;
-                case 67:
-                    self.keys[0xc] = false;
-                    break;
-                case 68:
-                    self.keys[0xd] = false;
-                    break;
-                case 69:
-                    self.keys[0xe] = false;
-                    break;
-                case 70:
-                    self.keys[0xf] = false;
-                    break;
-            };
+            if (self.keymap.hasOwnProperty(e.which) === true) {
+                self.keystate[self.keymap[e.which]] = false;
+            }
         });
     };
 
@@ -176,7 +99,7 @@ define([], function () {
         this.render = render;
     };
 
-    // load text sprites into reserved memory
+    // load hex character sprites into reserved memory
     C8.prototype.LoadSprites = function () {
         var sprites, i;
         sprites = [
@@ -247,8 +170,11 @@ define([], function () {
         // handle this.rate instructions
         for (i = 0; i < this.rate; i = i + 1) {
             try {
-                this.HandleInstruction();
-                //this.UpdateDisplay();
+                if (this.HandleInstruction() === false) {
+                    // wait for key press
+                    clearInterval(this.interval);
+                    this.UpdateDisplay();
+                }
             } catch (e1) {
                 console.log('error: ' + e1);
                 this.DumpState();
@@ -259,8 +185,6 @@ define([], function () {
             }
         }
         this.UpdateDisplay();
-
-        //this.UpdateDisplay();
     };
 
     C8.prototype.DumpState = function () {
@@ -399,11 +323,29 @@ define([], function () {
                             tmp = tmp & 0xff;
                             this.r[x] = tmp;
                             break;
+                        case 0x6: // SHR 1
+                            if (this.r[x] & 0x1 === 1) {
+                                this.r[0xf] = 1;
+                            } else {
+                                this.r[0xf] = 0;
+                            }
+                            tmp = this.r[x] / 2;
+                            tmp = tmp & 0xff;
+                            this.r[x] = tmp;
+                            break;
+                        case 0x7: // SUBN
+                            if (this.r[y] > this.r[x]) {
+                                this.r[0xf] = 1;
+                            } else {
+                                this.r[0xf] = 0;
+                            }
+                            this.r[x] = this.r[y] - this.r[x];
+                            break;
                         default:
                             throw "unhandled instruction: 0x" + op.toString(16);
                     }
                     break;
-                case 0x9:       // skip next instruction if vx != vy
+                case 0x9: // skip next instruction if vx != vy
                     if (this.r[x] !== this.r[y]) {
                         this.pc = this.pc + 2;
                     }
@@ -441,12 +383,12 @@ define([], function () {
                 case 0xE:
                     switch (kk) {
                         case (0x9e): 
-                            if (this.keys[this.r[x]] === true) {
+                            if (this.keystate[this.r[x]] === true) {
                                 this.pc = this.pc + 2;
                             }
                             break;
                         case (0xa1):
-                            if (this.keys[this.r[x]] === false) {
+                            if (this.keystate[this.r[x]] === false) {
                                 this.pc = this.pc + 2;
                             }
                             break;
@@ -460,7 +402,8 @@ define([], function () {
                             this.r[x] = this.r_delay;
                             break;
                         case 0x0A: // key press always the same key for now
-                            throw "key press not handled";
+                            this.waitforkeypress = x;
+                            return false;
                         case 0x15:  // set delay timer
                             this.r_delay = this.r[x];
                             break;
@@ -493,9 +436,10 @@ define([], function () {
                     }
                     break;
                 default:
-                    throw "Unhandled instruction: 0x" + op.toString(16);
+                    throw "Unhandled instruction: 0x" + op.toString(16) + " " + v.toString(16);
             }
         }
+        return true;
     };
 
     // clear the screen
