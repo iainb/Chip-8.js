@@ -5,11 +5,14 @@ define(['jquery'], function($) {
     }
 
     CanvasRender.prototype.Init = function(div, on, off) {
+        this.base_x = 64;
+        this.base_y = 32;
+        this.multiplier = 20;
+        this.redrawRequired = true;
+
         if (typeof div === "undefined") {
             // original display is 64x32
             this.div = $('<canvas/>')[0];
-            $(this.div).attr('width',640);
-            $(this.div).attr('height',320);
             $('body').append(this.div);
         } else {
             this.div = div;
@@ -28,7 +31,34 @@ define(['jquery'], function($) {
         } else {
             this.off = off;
         }
+
+        this.SetSizeMultiplier(this.multiplier);
     };
+
+    CanvasRender.prototype.SetSizeMultiplier = function(m) {
+        this.multiplier = m;
+        $(this.div).attr('width',  this.base_x * this.multiplier);
+        $(this.div).attr('height', this.base_y * this.multiplier); 
+        this.redrawRequired = true;
+    };
+
+    CanvasRender.prototype.FillScreen = function () {
+        var w,h, w_factor, h_factor, m;
+        w = $(window).innerWidth()
+        h = $(window).innerHeight();
+        
+        w_factor = Math.floor(w / this.base_x);
+        h_factor = Math.floor(h / this.base_y);
+        
+        if (w_factor < h_factor) {
+            m = w_factor;
+        } else {
+            m = h_factor;
+        }
+
+        this.SetSizeMultiplier(m);
+    };
+
 
     // d is screen data, u is pixels which should be 
     // updated.
@@ -38,7 +68,7 @@ define(['jquery'], function($) {
         context.save();
 
         for (i = 0; i < d.length; i = i + 1) {
-            if (u[i] === 1) {
+            if (u[i] === 1 || this.redrawRequired === true) {
                 x = i % 64;
                 y = Math.floor(i/64);
             
@@ -48,12 +78,19 @@ define(['jquery'], function($) {
                     context.fillStyle = this.on;
                 }
 
-                context.fillRect(x*10,y*10, 10, 10);
+                context.fillRect(x * this.multiplier,
+                                 y * this.multiplier, 
+                                 this.multiplier,
+                                 this.multiplier);
                 u[i] = 0;
             }
         }
 
         context.restore();
+
+        if (this.redrawRequired === true) {
+            this.redrawRequired = false;
+        }
     };
 
     return CanvasRender;

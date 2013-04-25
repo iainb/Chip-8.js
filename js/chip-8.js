@@ -1,4 +1,4 @@
-define([], function () {
+define(['webkitaudio'], function (WebKitAudio) {
     
     function C8 () {
         this.Init();
@@ -33,10 +33,11 @@ define([], function () {
         // interval timer
         this.interval = null;
 
-        // render is not set
+        // Not a reset - setting up for the first time
         if (reset !== true) {
             this.render = null;
             this.SetupEventHandlers();
+            this.audio = new WebKitAudio(); 
         }
     };
 
@@ -54,7 +55,7 @@ define([], function () {
         this.keystate = {  0x0: false, 0x1: false, 0x2: false, 0x3: false,
                            0x4: false, 0x5: false, 0x6: false, 0x7: false,
                            0x8: false, 0x9: false, 0xa: false, 0xb: false,
-                           0xc: false, 0xd: false, 0xe: false, 0xe: false, };
+                           0xc: false, 0xd: false, 0xe: false, 0xf: false, };
 
         this.keymap = { 48: 0x0, 49: 0x1, 50: 0x2, 51: 0x3,
                         52: 0x4, 53: 0x5, 54: 0x6, 55: 0x7,
@@ -173,6 +174,9 @@ define([], function () {
 
         if (this.r_sound !== 0) {
             this.r_sound = this.r_sound - 1;
+            this.audio.Start();
+        } else {
+            this.audio.Stop();
         }
 
         // handle this.rate instructions
