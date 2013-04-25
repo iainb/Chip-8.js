@@ -31,7 +31,7 @@ require(['jquery','chip-8', 'canvasrender'], function($, Chip8, CanvasRender) {
         });
 
         //c8.LoadFromUrl("/roms/Trip8.ch8");
-        c8.LoadFromUrl("/roms/Space Invaders.ch8");
+        c8.LoadFromUrl("roms/Space Invaders.ch8");
     });
 
 
