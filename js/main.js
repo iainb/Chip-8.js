@@ -7,9 +7,11 @@ require.config({
 require(['jquery','chip-8', 'canvasrender'], function($, Chip8, CanvasRender) { 
     $(document).ready(function () {
         var c8, render;
+
         c8 = new Chip8();
         render = new CanvasRender($('#output')[0]);
         c8.SetRender(render);
+        render.FillScreen();
 
         $('#hiddenload').on('change', function() {
             var reader, arraybuf, rom;
@@ -28,6 +30,10 @@ require(['jquery','chip-8', 'canvasrender'], function($, Chip8, CanvasRender) {
         $('#load').on('click', function(e) {
             $('#hiddenload').click();
             e.preventDefault();
+        });
+
+        $(window).resize(function() {
+            render.FillScreen();
         });
 
         //c8.LoadFromUrl("/roms/Trip8.ch8");

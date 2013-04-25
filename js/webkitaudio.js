@@ -5,7 +5,7 @@ define([], function () {
 
     Audio.prototype.Init = function () {
         this.available = false;
-        if( window.webkitAudioContext ) {
+        if(typeof window.webkitAudioContext !== 'undefined') {
 	    	this.ctx = new webkitAudioContext();
     		this.oscillator = this.ctx.createOscillator();
             this.oscillator.type = 2; // saw tooth
