@@ -4,7 +4,7 @@ define([], function () {
         this.Init();
     }
 
-    C8.prototype.Init = function () {
+    C8.prototype.Init = function (reset) {
         // initialise memory, registers, stack and screen.
         this._mbuf = new ArrayBuffer(4096);         // chip-8 main memory 4kb
         this.m     = new Uint8Array(this._mbuf);
@@ -34,10 +34,18 @@ define([], function () {
         this.interval = null;
 
         // render is not set
-        this.render = null;
-        this.count = 0;
+        if (reset !== true) {
+            this.render = null;
+            this.SetupEventHandlers();
+        }
+    };
 
-        this.SetupEventHandlers();
+    C8.prototype.Reset = function () {
+        if (this.interval !== null) {
+            clearInterval(this.interval);
+        }
+    
+        this.Init(true);
     };
 
     // event handlers for keys
@@ -131,8 +139,8 @@ define([], function () {
         var req, self;
         self = this;
         req = new XMLHttpRequest();
-        req.responseType = "arraybuffer";
         req.open('GET', url, true);
+        req.responseType = "arraybuffer";
         req.onload = function () {
             var data, buf;
             data = this.response;
@@ -145,7 +153,7 @@ define([], function () {
     // Load a rom into memory and start executing
     C8.prototype.LoadResource = function (rom) {
         var self, i;
-
+        this.Reset();
         self = this;
 
         for (i = 0; i < rom.length; i = i + 1) {

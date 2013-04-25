@@ -17,14 +17,14 @@ define(['jquery'], function($) {
 
         if (typeof on === "undefined") {
             // default 
-            this.on = "ffcc00";
+            this.on = "#ffcc00";
         } else {
             this.on = on;
         }
 
         if (typeof off === "undefined") {
             // default
-            this.off = "996600";
+            this.off = "#996600";
         } else {
             this.off = off;
         }
