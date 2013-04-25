@@ -6,7 +6,7 @@ require.config({
 
 require(['jquery','chip-8', 'canvasrender'], function($, Chip8, CanvasRender) { 
     $(document).ready(function () {
-        var c8;
+        var c8, render;
         c8 = new Chip8();
         render = new CanvasRender($('#output')[0]);
         c8.SetRender(render);
@@ -32,6 +32,7 @@ require(['jquery','chip-8', 'canvasrender'], function($, Chip8, CanvasRender) {
 
         //c8.LoadFromUrl("/roms/Trip8.ch8");
         c8.LoadFromUrl("roms/Space Invaders.ch8");
+
     });
 
 

@@ -1,4 +1,4 @@
-define([], function () {
+define(['webkitaudio'], function (WebKitAudio) {
     
     function C8 () {
         this.Init();
@@ -33,10 +33,11 @@ define([], function () {
         // interval timer
         this.interval = null;
 
-        // render is not set
+        // Not a reset - setting up for the first time
         if (reset !== true) {
             this.render = null;
             this.SetupEventHandlers();
+            this.audio = new WebKitAudio(); 
         }
     };
 
@@ -173,6 +174,9 @@ define([], function () {
 
         if (this.r_sound !== 0) {
             this.r_sound = this.r_sound - 1;
+            this.audio.Start();
+        } else {
+            this.audio.Stop();
         }
 
         // handle this.rate instructions
